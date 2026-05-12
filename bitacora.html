@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Reportes</title>
+    <!-- Tailwind CSS para el diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librería html2pdf.js para exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Fuentes de Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        /* Estilos para los campos editables */
+        [contenteditable="true"] {
+            outline: none;
+            transition: border-color 0.2s;
+            cursor: text;
+        }
+        
+        [contenteditable="true"]:hover {
+            background-color: #f8fafc;
+        }
+        
+        [contenteditable="true"]:focus {
+            border-bottom-color: #3b82f6 !important;
+            background-color: #eff6ff;
+        }
+
+        /* Placeholder para divs editables */
+        [contenteditable="true"]:empty:before {
+            content: attr(data-placeholder);
+            color: #9ca3af;
+            pointer-events: none;
+            display: block; /* Para que funcione en multilínea */
+        }
+
+        /* Ocultar barra de herramientas al imprimir o generar PDF */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white;
+            }
+            .document-container {
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col items-center py-10">
+
+    <!-- Barra de Herramientas Flotante (No se imprime) -->
+    <div class="no-print fixed top-0 left-0 w-full bg-white shadow-md z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <h1 class="text-xl font-bold text-gray-800">Editor de Reportes</h1>
+        </div>
+        <div class="flex gap-4">
+            <button onclick="limpiarCampos()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                Limpiar Formulario
+            </button>
+            <button onclick="generarPDF()" class="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Exportar PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Espacio para compensar la barra fija -->
+    <div class="h-16 no-print"></div>
+
+    <!-- Contenedor del Documento Principal (Esto es lo que se exporta) -->
+    <div id="documento-reporte" class="document-container w-full max-w-[210mm] bg-white mt-8 p-12 shadow-2xl rounded-sm">
+        
+        <!-- Encabezado del Reporte -->
+        <div class="flex justify-between items-start border-b-2 border-gray-800 pb-6 mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900 tracking-tight uppercase" contenteditable="true" data-placeholder="TÍTULO DEL REPORTE">REPORTE OFICIAL</h2>
+                <div class="mt-2 text-sm text-gray-600" contenteditable="true" data-placeholder="Subtítulo o departamento...">Departamento de Operaciones</div>
+            </div>
+            <div class="text-right">
+                <div class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Información de Emisión</div>
+                <div class="text-gray-800 font-medium">
+                    Fecha: <span id="fecha-actual" contenteditable="true" class="font-normal text-gray-600 border-b border-transparent hover:border-blue-300 transition-colors">12 de mayo de 2026</span>
+                </div>
+                <div class="text-gray-800 font-medium">
+                    Hora: <span id="hora-actual" contenteditable="true" class="font-normal text-gray-600 border-b border-transparent hover:border-blue-300 transition-colors">08:30 AM</span>
+                </div>
+                <div class="text-gray-800 font-medium mt-1">
+                    Ref: <span contenteditable="true" data-placeholder="001-2026" class="font-normal text-gray-600 inline-block min-w-[60px] border-b border-dashed border-gray-300"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metadatos / Información General -->
+        <div class="grid grid-cols-2 gap-x-10 gap-y-4 mb-10">
+            <div class="flex flex-col">
+                <label class="text-xs font-bold text-gray-500 uppercase">Preparado por</label>
+                <div contenteditable="true" data-placeholder="Nombre del autor..." class="border-b border-gray-300 py-1 text-gray-800 min-h-[30px]">Juan Pérez</div>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-bold text-gray-500 uppercase">Dirigido a / Supervisor</label>
+                <div contenteditable="true" data-placeholder="Nombre del receptor..." class="border-b border-gray-300 py-1 text-gray-800 min-h-[30px]">Ing. Ana García</div>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-bold text-gray-500 uppercase">Dirigido a / Supervisor</label>
+                <div contenteditable="true" data-placeholder="Nombre del receptor..." class="border-b border-gray-300 py-1 text-gray-800 min-h-[30px]"></div>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-bold text-gray-500 uppercase">Asunto / Motivo</label>
+                <div contenteditable="true" data-placeholder="Asunto principal..." class="border-b border-gray-300 py-1 text-gray-800 min-h-[30px]"></div>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-bold text-gray-500 uppercase">Estado / Prioridad</label>
+                <div contenteditable="true" data-placeholder="Ej. Alta, En progreso, Completado..." class="border-b border-gray-300 py-1 text-gray-800 min-h-[30px]"></div>
+            </div>
+        </div>
+
+        <!-- Cuerpo Principal -->
+        <div class="space-y-8 min-h-[400px]">
+            <!-- Sección 1 -->
+            <div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2" contenteditable="true" data-placeholder="1. Resumen Ejecutivo">1. Descripción de los Hechos / Situación</h3>
+                <div contenteditable="true" data-placeholder="Escriba los detalles aquí. Puede presionar Enter para crear múltiples párrafos. Sea claro y conciso..." class="text-gray-700 leading-relaxed text-justify w-full border border-transparent hover:border-gray-200 focus:border-blue-300 p-2 rounded min-h-[100px]"></div>
+            </div>
+
+            <!-- Sección 2 -->
+            <div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2" contenteditable="true" data-placeholder="2. Acciones Tomadas">2. Acciones Tomadas / Soluciones</h3>
+                <div contenteditable="true" data-placeholder="Describa las acciones que se han ejecutado o las soluciones implementadas..." class="text-gray-700 leading-relaxed text-justify w-full border border-transparent hover:border-gray-200 focus:border-blue-300 p-2 rounded min-h-[100px]"></div>
+            </div>
+
+            <!-- Sección 3 -->
+            <div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2" contenteditable="true" data-placeholder="3. Conclusiones y Recomendaciones">3. Conclusiones / Próximos Pasos</h3>
+                <div contenteditable="true" data-placeholder="Agregue recomendaciones o pasos a seguir..." class="text-gray-700 leading-relaxed text-justify w-full border border-transparent hover:border-gray-200 focus:border-blue-300 p-2 rounded min-h-[80px]"></div>
+            </div>
+        </div>
+
+        <!-- Firmas -->
+        <div class="mt-16 pt-8 border-t border-gray-200 flex justify-around">
+            <div class="flex flex-col items-center w-64">
+                <div class="border-b-2 border-gray-800 w-full h-16 mb-2"></div>
+                <div id="nombre-autor" class="text-sm font-bold text-gray-800 text-center w-full" contenteditable="true" data-placeholder="Nombre y Apellido">Juan Pérez</div>
+                <div class="text-xs text-gray-500" contenteditable="true" data-placeholder="Cargo">Firma del Responsable</div>
+            </div>
+            <div class="flex flex-col items-center w-64">
+                <div class="border-b-2 border-gray-800 w-full h-16 mb-2"></div>
+                <div id="nombre-supervisor" class="text-sm font-bold text-gray-800 text-center w-full" contenteditable="true" data-placeholder="Nombre y Apellido">Ing. Ana García</div>
+                <div class="text-xs text-gray-500" contenteditable="true" data-placeholder="Cargo">Firma de Recibido / Aprobado</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script de lógica -->
+    <script>
+        let autoActualizar = false; // Desactivado por defecto ya que los valores han sido editados manualmente
+
+        // Si el usuario hace clic en fecha u hora, nos aseguramos de que no se actualice sola
+        document.getElementById('fecha-actual').addEventListener('focus', () => autoActualizar = false);
+        document.getElementById('hora-actual').addEventListener('focus', () => autoActualizar = false);
+
+        // Función para actualizar fecha y hora automáticamente (solo si no se ha editado)
+        function actualizarReloj() {
+            if (!autoActualizar) return;
+
+            const ahora = new Date();
+            const opcionesFecha = { year: 'numeric', month: 'long', day: 'numeric' };
+            const fechaFormateada = ahora.toLocaleDateString('es-ES', opcionesFecha);
+            const opcionesHora = { hour: '2-digit', minute: '2-digit' };
+            const horaFormateada = ahora.toLocaleTimeString('es-ES', opcionesHora);
+            
+            document.getElementById('fecha-actual').textContent = fechaFormateada;
+            document.getElementById('hora-actual').textContent = horaFormateada;
+        }
+
+        // Sincronizar nombres con los campos de firma
+        const inputAutorArriba = document.querySelector('[data-placeholder="Nombre del autor..."]');
+        const firmaAutor = document.getElementById('nombre-autor');
+        
+        const inputSupervisorArriba = document.querySelector('[data-placeholder="Nombre del receptor..."]');
+        const firmaSupervisor = document.getElementById('nombre-supervisor');
+
+        inputAutorArriba.addEventListener('input', () => {
+            firmaAutor.textContent = inputAutorArriba.textContent;
+            // Si el campo de arriba queda vacío, restaurar el placeholder visual (hack)
+            if(inputAutorArriba.textContent.trim() === '') firmaAutor.innerHTML = '';
+        });
+
+        inputSupervisorArriba.addEventListener('input', () => {
+            firmaSupervisor.textContent = inputSupervisorArriba.textContent;
+            if(inputSupervisorArriba.textContent.trim() === '') firmaSupervisor.innerHTML = '';
+        });
+
+
+        // Iniciar reloj
+        actualizarReloj();
+        setInterval(actualizarReloj, 60000);
+
+        function generarPDF() {
+            const elemento = document.getElementById('documento-reporte');
+            const opciones = {
+                margin:       [10, 0, 10, 0],
+                filename:     `Reporte_${new Date().getTime()}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const btn = document.querySelector('button[onclick="generarPDF()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Generando...';
+            btn.disabled = true;
+
+            html2pdf().set(opciones).from(elemento).save().then(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error("Error:", err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        function limpiarCampos() {
+            const campos = document.querySelectorAll('[contenteditable="true"]');
+            campos.forEach(campo => {
+                // Limpiamos los campos de contenido, pero no los títulos estáticos a menos que sean nombres
+                if((!campo.classList.contains('font-bold') || campo.id.includes('nombre')) && campo.id !== 'fecha-actual' && campo.id !== 'hora-actual') {
+                   campo.innerHTML = ''; 
+                }
+            });
+            autoActualizar = true; // Restaurar la actualización del reloj
+            actualizarReloj();
+        }
+    </script>
+</body>
+</html>
